@@ -658,7 +658,9 @@ HANDLE __stdcall Hook_CreateFileA(LPCSTR lpFileName,
 	{
 
 		if (!(_mbsnbcmp(lpFileName, "D:\\", 3)) || !(_mbsnbcmp(lpFileName, "d:\\", 3)) ||
-			!(_mbsnbcmp(lpFileName, "E:\\", 3)) || !(_mbsnbcmp(lpFileName, "e:\\", 3)))
+			!(_mbsnbcmp(lpFileName, "E:\\", 3)) || !(_mbsnbcmp(lpFileName, "e:\\", 3)) ||
+			!(_mbsnbcmp(lpFileName, "D:/", 3)) || !(_mbsnbcmp(lpFileName, "d:/", 3)) ||
+			!(_mbsnbcmp(lpFileName, "E:/", 3)) || !(_mbsnbcmp(lpFileName, "e:/", 3)))
 		{
 			// skip D:\\ or E:\\
 
