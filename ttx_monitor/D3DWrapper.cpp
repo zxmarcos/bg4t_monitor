@@ -18,13 +18,16 @@
 #pragma comment(lib, "dxerr.lib")
 
 // Gera muito, mais muito log '-'
-#if 1
+#if 0
 #define LOG_API()	logmsg("%s\n", __FUNCTION__)
 #else
 #define LOG_API()
 #endif
 
+#define FORCE_LOG_API()	logmsg("%s\n", __FUNCTION__)
 
+#define FORCE_W 1920
+#define FORCE_H 1080
 
 LPDirect3DCreate9 __Direct3DCreate9 = NULL;
 
@@ -34,7 +37,16 @@ static LPDIRECT3DDEVICE9 pD3Dev;
 struct FAR HookIDirect3DDevice9;
 static HookIDirect3DDevice9 D3DevWrapper, *pD3DevWrapper = &D3DevWrapper;
 
-
+static void logD3DMatrix(CONST D3DMATRIX* pMatrix)
+{
+	for (int y = 0; y < 4; y++) {
+		for (int x = 0; x < 4; x++) {
+			logmsg("%2.4f ", pMatrix->m[y][x]);
+		}
+		logmsg("\n");
+	}
+	logmsg("\n");
+}
 
 HRESULT HookIDirect3D9::QueryInterface(LPVOID _this, REFIID riid,LPVOID *ppvObj)
 {
@@ -136,10 +148,10 @@ HMONITOR HookIDirect3D9::GetAdapterMonitor(LPVOID _this, UINT Adapter)
 HRESULT HookIDirect3D9::CreateDevice(LPVOID _this, UINT Adapter,D3DDEVTYPE DeviceType,HWND hFocusWindow,DWORD BehaviorFlags,D3DPRESENT_PARAMETERS* pPresentationParameters,IDirect3DDevice9** ppReturnedDeviceInterface)
 {
 
-#if 1
 	LOG_API();
+#if 1
 	HRESULT res = 0;
-
+#if 0
 	if (configMgr.GetConfig(TTX_CONFIG_WINDOWED))
 	{
 
@@ -179,6 +191,10 @@ HRESULT HookIDirect3D9::CreateDevice(LPVOID _this, UINT Adapter,D3DDEVTYPE Devic
 
 		res = pD3D->CreateDevice(Adapter, DeviceType, hFocusWindow, BehaviorFlags, &d3dpp, &pD3Dev);
 	} else 
+#endif
+		logmsg("RES %dx%d\n", pPresentationParameters->BackBufferWidth, pPresentationParameters->BackBufferHeight);
+		//pPresentationParameters->BackBufferWidth = 1920;
+		//pPresentationParameters->BackBufferHeight = 1080;
 		res = pD3D->CreateDevice(Adapter, DeviceType, hFocusWindow, BehaviorFlags, pPresentationParameters, &pD3Dev);
 	if (FAILED(res)) {
 		logmsg("Err = %X\n", res);
@@ -321,6 +337,7 @@ HRESULT HookIDirect3DDevice9::Present(LPVOID _this,
 									  HWND hDestWindowOverride,
 									  CONST RGNDATA* pDirtyRegion)
 {
+	//logmsg(" ################################# \n");
 	LOG_API();
 	return pD3Dev->Present(pSourceRect, pDestRect, hDestWindowOverride, pDirtyRegion);
 }
@@ -364,7 +381,11 @@ VOID HookIDirect3DDevice9::GetGammaRamp(LPVOID _this, UINT iSwapChain,D3DGAMMARA
 HRESULT HookIDirect3DDevice9::CreateTexture(LPVOID _this, UINT Width,UINT Height,UINT Levels,DWORD Usage,D3DFORMAT Format,D3DPOOL Pool,IDirect3DTexture9** ppTexture,HANDLE* pSharedHandle)
 {
 	LOG_API();
-	return pD3Dev->CreateTexture(Width, Height, Levels, Usage, Format, Pool, ppTexture, pSharedHandle);
+	HRESULT res = pD3Dev->CreateTexture(Width, Height, Levels, Usage, Format, Pool, ppTexture, pSharedHandle);
+	if (Usage & D3DUSAGE_RENDERTARGET) {
+		logmsg("RENDER_TARGET %d, %d = %x\n", Width, Height, *ppTexture);
+	}
+	return res;
 }
 
 HRESULT HookIDirect3DDevice9::CreateVolumeTexture(LPVOID _this,
@@ -431,6 +452,10 @@ HRESULT HookIDirect3DDevice9::CreateRenderTarget(LPVOID _this,
 												 HANDLE* pSharedHandle)
 {
 	LOG_API();
+	logmsg("CreateRenderTarget: %dx%d\n", Width, Height);
+	//Width *= 2;
+	//Height *= 2;
+	
 	return pD3Dev->CreateRenderTarget(Width, Height, Format, MultiSample, MultisampleQuality, Lockable, ppSurface, pSharedHandle);
 }
 
@@ -445,6 +470,8 @@ HRESULT HookIDirect3DDevice9::CreateDepthStencilSurface(LPVOID _this,
 														HANDLE* pSharedHandle)
 {
 	LOG_API();
+	//Width *= 2;
+	//Height *= 2;
 	return pD3Dev->CreateDepthStencilSurface(Width, Height, Format, MultiSample, MultisampleQuality, Discard, ppSurface, pSharedHandle);
 }
 
@@ -513,6 +540,8 @@ HRESULT HookIDirect3DDevice9::CreateOffscreenPlainSurface(LPVOID _this,
 														  HANDLE* pSharedHandle)
 {
 	LOG_API();
+	//Width *= 2;
+	//Height *= 2;
 	return pD3Dev->CreateOffscreenPlainSurface(Width, Height, Format, Pool, ppSurface, pSharedHandle);
 }
 
@@ -521,6 +550,7 @@ HRESULT HookIDirect3DDevice9::SetRenderTarget(LPVOID _this,
 											  IDirect3DSurface9* pRenderTarget)
 {
 	LOG_API();
+	logmsg("SetRenderTarget: %x\n", pRenderTarget);
 	return pD3Dev->SetRenderTarget(RenderTargetIndex, pRenderTarget);
 }
 
@@ -550,6 +580,7 @@ HRESULT HookIDirect3DDevice9::GetDepthStencilSurface(LPVOID _this,
 
 HRESULT HookIDirect3DDevice9::BeginScene(LPVOID _this)
 {
+	//logmsg("\n\n @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ \n");
 	LOG_API();
 	HRESULT res = 0;
 	res = pD3Dev->BeginScene();
@@ -600,11 +631,28 @@ HRESULT HookIDirect3DDevice9::MultiplyTransform(LPVOID _this,
 	return pD3Dev->MultiplyTransform(Type, pMatrix);
 }
 
+
 HRESULT HookIDirect3DDevice9::SetViewport(LPVOID _this,
 										  CONST D3DVIEWPORT9* pViewport)
 {
 	LOG_API();
-	return pD3Dev->SetViewport(pViewport);
+
+	//logmsg("SetViewport: [%d, %d, %d, %d]\n", pViewport->X, pViewport->Y, pViewport->Width, pViewport->Height);
+	D3DVIEWPORT9 vp(*pViewport);
+	/*if ((vp.Width == 800) && (vp.Height == 600)) {
+		vp.Width = 1920;
+		vp.Height = 1080;
+	} else if ((vp.Width == 256) && (vp.Height == 256)) {
+		vp.Width = 256;
+		vp.Height = 256;
+	} else if ((vp.Width == 64) && (vp.Height == 64)) {
+		vp.Width = 64;
+		vp.Height = 64;
+	} */
+	
+	return pD3Dev->SetViewport(&vp);
+	
+	//return pD3Dev->SetViewport(pViewport);
 }
 
 HRESULT HookIDirect3DDevice9::GetViewport(LPVOID _this,

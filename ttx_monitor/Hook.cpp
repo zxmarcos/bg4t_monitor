@@ -22,6 +22,8 @@ static int isInitialized = 0;
 #define MONITOR_JVS	0
 #define MONITOR_SW	1
 #define MONITOR_HANDLER(h)	(((DWORD)hFile)&1)
+#define LOG_STREAM MONITOR_JVS
+
 
 // BattleGear4 Tuned, chama a função nativa para exibir uma mensagem na tela.
 typedef void (*LPDrawMessage)(void *font, int x, int y, unsigned color, const char *fmt, ...);
@@ -64,6 +66,7 @@ static LPCreateWindowExW __CreateWindowExW = NULL;
 static LPCreateFileA  __CreateFileA = NULL;
 static LPCreateFileW  __CreateFileW = NULL;
 static LPGetFileAttributesA __GetFileAttributesA = NULL;
+static LPmmioOpenA __mmioOpenA = NULL;
 
 //////////////////////////////////////////////////////////////////////////////////////
 // Unicode/ANSI functions (W/A)
@@ -204,8 +207,8 @@ BOOL __stdcall TTX_HookFunctions()
 	__XHOOKn("kernel32.dll", CreateFileW);
 
 	// O samurai trava nessa função, logo...
-	__XHOOKn("user32.dll", GetWindowTextA);
-	__XHOOKn("user32.dll", GetWindowTextW);
+	//__XHOOKn("user32.dll", GetWindowTextA);
+	//__XHOOKn("user32.dll", GetWindowTextW);
 
 	//__XHOOKn("user32.dll", CreateWindowExA);
 	//__XHOOKn("user32.dll", CreateWindowExW);
@@ -223,6 +226,9 @@ BOOL __stdcall TTX_HookFunctions()
 	__XHOOKn("kernel32.dll", SetCommTimeouts);
 	__XHOOKn("kernel32.dll", GetCommTimeouts);
 	__XHOOKn("DINPUT8.dll", DirectInput8Create);
+	__XHOOKn("DSOUND.dll", DirectSoundCreate8);
+	__XHOOKn("WINMM.dll", mmioOpenA);
+
 
 	// As duas versões são retrocompatíveis.
 	//HookIt("D3D8.dll", "Direct3DCreate8", (LPVOID) &Direct3DCreate9);
@@ -371,15 +377,6 @@ BOOL __stdcall Hook_SetCommTimeouts(HANDLE hFile, LPCOMMTIMEOUTS lpCommTimeouts)
 	return TRUE;
 }
 
-long map(long x, long in_min, long in_max, long out_min, long out_max)
-{
-  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
-}
-
-unsigned long MyMap(unsigned long x, unsigned long in_min, unsigned long in_max, unsigned long out_min, unsigned long out_max) {
-
-      return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
-}
 
 static inline int clampDeadZone(long value)
 {
@@ -409,7 +406,7 @@ BOOL __stdcall Hook_WriteFile(HANDLE hFile,
 
 	//logmsg("Recebendo %d bytes...\n", nNumberOfBytesToWrite);
 #if LOG_IO_STREAM
-	if (chan == MONITOR_SW) {
+	if (chan == LOG_STREAM) {
 		logmsg("RD:  ");
 		for (DWORD i = 0; i < nNumberOfBytesToWrite; i++) {
 			logmsg("%02X ", (DWORD) *ptr);
@@ -448,7 +445,7 @@ BOOL __stdcall Hook_WriteFile(HANDLE hFile,
 
 					int analog = inputMgr.GetState(ANALOG_3);
 					// 1025 - 2045
-					unsigned counter = MyMap(analog, -1000, 1000, 0x400, 0x7FF);
+					unsigned counter = mapRange(analog, -1000, 1000, 0x400, 0x7FF);
 					if (!clampDeadZone(analog))
 						counter = 1535;
 	
@@ -465,8 +462,8 @@ BOOL __stdcall Hook_WriteFile(HANDLE hFile,
 					logmsg("%d = %x\n", counter, result);
 #endif
 #if 0
-					DrawMessage(000, 500, "HANDLE: %4x, ACCEL: %4x, BRAKE: %4", counter,
-						inputMgr.GetState(ANALOG_1), inputMgr.GetState(ANALOG_2));
+					DrawMessage(000, 500, "HANDLE: %d, ACCEL: %d, BRAKE: %d", counter,
+						inputMgr.fakeAnalogs[0].read(), inputMgr.fakeAnalogs[1].read());
 #endif
 					replyBuffer[chan].push(HIBYTE(counter));
 					replyBuffer[chan].push(LOBYTE(counter));
@@ -521,7 +518,7 @@ BOOL __stdcall Hook_ReadFile(HANDLE hFile,
 				*ptr++ = 0;
 		}
 #if LOG_IO_STREAM
-		if (chan == MONITOR_SW) {
+		if (chan == LOG_STREAM) {
 			//logmsg("Lidos %d\n", nNumberOfBytesToRead);
 			ptr = (BYTE*) lpBuffer;
 			logmsg("SD:  ");
@@ -612,6 +609,21 @@ int _mbsnbcmp(const char *a, const char *b, int l)
 		++b;
 	}
 	return ret;
+}
+
+HMMIO __stdcall Hook_mmioOpenA(LPCSTR pszFileName, LPMMIOINFO pmmioinfo, DWORD fdwOpen)
+{
+#if DEBUG_API
+	logmsg("mmioOpenA(%s, %x, %x)\n", pszFileName, pmmioinfo, fdwOpen);
+#endif
+	if (!(_mbsnbcmp(pszFileName, "D:\\", 3)) || !(_mbsnbcmp(pszFileName, "d:\\", 3)) ||
+		!(_mbsnbcmp(pszFileName, "E:\\", 3)) || !(_mbsnbcmp(pszFileName, "e:\\", 3)) ||
+		!(_mbsnbcmp(pszFileName, "D:/", 3)) || !(_mbsnbcmp(pszFileName, "d:/", 3)) ||
+		!(_mbsnbcmp(pszFileName, "E:/", 3)) || !(_mbsnbcmp(pszFileName, "e:/", 3)))
+	{
+			pszFileName += 3;
+	}
+	return __mmioOpenA(pszFileName, pmmioinfo, fdwOpen);
 }
 
 HANDLE __stdcall Hook_CreateFileA(LPCSTR lpFileName,

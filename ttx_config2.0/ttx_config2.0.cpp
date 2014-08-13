@@ -29,6 +29,47 @@ struct InputBind {
 #define INPDLG_NOTFOUND		WM_USER+2
 #define INPDLG_COUNTDOWN	WM_USER+3
 
+/*
+COIN       - OK = P2 Service
+SERVICE    - OK = P1 Service
+TIME START -
+START      - OK
+VIEW       - OK = P1 Up
+HAZARD     - OK = P1 Down
+OVER TAKE  - OK = P1 Left
+SHIFT UP   - OK = P1 But 2
+SHIFT DOWN - OK = P1 But 3
+
+SIDE BREAK - OK = P1 But 1
+SEAT SW1   -
+SEAT SW2   -
+
+HANDLE     -
+ACCEL      - OK
+BRAKE      - OK
+
+KEY        - ON = P1 Right
+*/
+
+InputBind InputTable[] = {
+	{ "COIN", P2_SERVICE },
+	{ "SERVICE", P1_SERVICE },
+	{ "START", P1_START },
+	{ "VIEW", P1_UP },
+	{ "HAZARD", P1_DOWN },
+	{ "OVER TAKE", P1_LEFT },
+	{ "KEY", P1_RIGHT },
+	{ "SHIFT UP", P1_BUTTON_2 },
+	{ "SHIFT DOWN", P1_BUTTON_3 },
+	{ "SIDE BRAKE", P1_BUTTON_1 },
+	{ "HANDLE", ANALOG_3 },
+	{ "ACCEL", ANALOG_1 },
+	{ "BRAKE", ANALOG_2 },
+	{ "TEST MODE", TEST_MODE },
+	{ "EXIT", TTX_EXIT_CODE },
+};
+
+#if 0
 InputBind InputTable[__INPUT_MAX__] = {
 	{ "P1 Start",	P1_START },
 	{ "P1 Coin",	P1_COIN },
@@ -44,7 +85,7 @@ InputBind InputTable[__INPUT_MAX__] = {
 	{ "P1 But 5",	P1_BUTTON_5 },
 	{ "P1 But 6",	P1_BUTTON_6 },
 	{ "P2 Start",	P2_START },
-	{ "P2 Coin",	P2_COIN },
+	{ "COIN",	P2_COIN },
 	{ "P2 Service",	P2_SERVICE },
 	{ "P2 Up",		P2_UP },
 	{ "P2 Down",	P2_DOWN },
@@ -63,12 +104,12 @@ InputBind InputTable[__INPUT_MAX__] = {
 	{ "Analog 3",	ANALOG_3 },
 	{ "Analog 4",	ANALOG_4 },
 };
+#endif
 
 HINSTANCE hInstance = 0;
 HWND hInputList = 0;
 HWND hWaitForInput = 0;
 HWND hMainDlg = 0;
-int currentInputNumber = 0;
 
 // Fiquei pensando muito tempo como fazer uma janelinha que ficasse esperando
 // por um input, depois de reescrever várias vezes, o método de utilizar
@@ -86,20 +127,8 @@ static void WaitForInput(void *arg)
 	while (currTime < (initTime + 5000))
 	{
 		result = inputMgr.Find();
-		if (result != -1) {
-			if (inputMgr.isAnalogState(currentInputNumber)) {
-				if (IS_JOY_AXIS(result) && IS_JOY_OBJECT(result)) {
-					break;
-				}
-				// 
-				if (result == VK_ESCAPE) {
-					result = 0;
-					break;
-				}
-			} else {
-				break;
-			}
-		}
+		if (result != -1)
+			break;
 		Sleep(30);
 		currTime = GetTickCount();
 	}
@@ -186,9 +215,9 @@ BOOL CALLBACK  MainDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			LVITEM item;
 			ZeroMemory(&item, sizeof(item));
 
-			item.mask = LVIF_TEXT;// | LVIF_PARAM;
+			item.mask = LVIF_TEXT;
 			item.iSubItem = 0;
-			for (int i=0; i < __INPUT_MAX__; i++) {
+			for (int i = 0; i < sizeof(InputTable) / sizeof(InputBind); i++) {
 				item.pszText = InputTable[i].name;
 				item.iItem = i;
 				item.lParam = InputTable[i].index;
@@ -197,7 +226,7 @@ BOOL CALLBACK  MainDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			static char nameBuf[128];
 
 			item.iSubItem = 1;
-			for (int i=0; i < __INPUT_MAX__; i++) {
+			for (int i = 0; i < sizeof(InputTable) / sizeof(InputBind); i++) {
 				item.pszText = (LPSTR) inputMgr.GetCodeName(InputTable[i].index, nameBuf);
 				item.iItem = i;
 				item.lParam = InputTable[i].index;
@@ -218,12 +247,11 @@ BOOL CALLBACK  MainDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 					LPNMITEMACTIVATE lpItem = (LPNMITEMACTIVATE) lParam;
 
 					if (lpItem) {
-						currentInputNumber = lpItem->iItem;
+						TTX_InputsDef idx = (TTX_InputsDef) InputTable[lpItem->iItem].index;
 						int value = DialogBox(hInstance, MAKEINTRESOURCE(IDD_WAITFORINPUT), hMainDlg, WaitForInputDlgProc);
 
-						if (value != -1) 
-						{
-							TTX_InputsDef idx = (TTX_InputsDef) lpItem->iItem;
+						if (value != -1) {
+						
 							inputMgr.BindInput(idx, value);
 
 							LVITEM item;

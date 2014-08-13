@@ -69,6 +69,9 @@
     <ClCompile Include="udis86\udis86.c">
       <Filter>udis86</Filter>
     </ClCompile>
+    <ClCompile Include="DSWrapper.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="export.def">
@@ -114,6 +117,9 @@
     </ClInclude>
     <ClInclude Include="udis86\udis86.h">
       <Filter>udis86</Filter>
+    </ClInclude>
+    <ClInclude Include="DSWrapper.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

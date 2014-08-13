@@ -347,11 +347,6 @@ static WORD p2coin = 0;
 static int coinstate[2]= {0,0};
 
 
-static inline short scaleAnalog(int value, double scale)
-{
-	return (short)(int)fabs((double)value * scale);
-}
-
 DWORD process_stream(UINT8 *stream, DWORD srcsize, BYTE *dst, DWORD dstsize)
 {
 	jprot_encoder r;
@@ -455,7 +450,6 @@ DWORD process_stream(UINT8 *stream, DWORD srcsize, BYTE *dst, DWORD dstsize)
 				r.push(0); // null
 			}
 
-
 			r.push(JVS_IOFUNC_COINTYPE);
 			{
 				r.push(JVS_SUPPORT_SLOTS); // 2 slots
@@ -500,9 +494,7 @@ DWORD process_stream(UINT8 *stream, DWORD srcsize, BYTE *dst, DWORD dstsize)
 				r.push(inpInfo.Xp1LoByte());
 				r.push(inpInfo.Xp2HiByte());
 				r.push(inpInfo.Xp2LoByte());
-
 				increment = 3;
-
 				break;
 			}
 
@@ -535,22 +527,23 @@ DWORD process_stream(UINT8 *stream, DWORD srcsize, BYTE *dst, DWORD dstsize)
 			// ===========================
 		case 0x22: // read analog...
 			{
-				const double scale = 1.0;
 				r.push(JVS_REPORT_OK);
 				int channels = __ARG__(1);
 				wr_analogs:
-				//logmsg("cmd 0x22 read analog %x\n", rsps);
+				//logmsg("cmd 0x22 read analog %x\n", channels);
 				short v;
+				unsigned counter = 0;
 
 				//Channel 1 - Accel
-				v = scaleAnalog(inputMgr.GetState(ANALOG_1), scale);
-				r.push(HIBYTE(v));
-				r.push(LOBYTE(v));
+				counter = mapRange(inputMgr.GetState(ANALOG_1), 0, 1000, 0x400, 0x4FF);
+				r.push(HIBYTE(counter));
+				r.push(LOBYTE(counter));
 
 				// Channel 2 - Break
-				v = scaleAnalog(inputMgr.GetState(ANALOG_2), scale);
-				r.push(HIBYTE(v));
-				r.push(LOBYTE(v));
+				counter = mapRange(inputMgr.GetState(ANALOG_2), 0, 1000, 0x400, 0x4FF);
+				r.push(HIBYTE(counter));
+				r.push(LOBYTE(counter));
+
 #define PUSH_ZERO	r.push(0x80); r.push(0)
 
 				// Channel 3 - Volume
@@ -585,7 +578,6 @@ DWORD process_stream(UINT8 *stream, DWORD srcsize, BYTE *dst, DWORD dstsize)
 			}
 		case 0x33: // send something...
 			{
-				queue<BYTE> analogs;
 				int rsps = __ARG__(1) * 2;
 				r.push(JVS_REPORT_OK);
 				increment = 2 + rsps;
@@ -613,16 +605,40 @@ DWORD process_stream(UINT8 *stream, DWORD srcsize, BYTE *dst, DWORD dstsize)
 			}
 #if 1
 		case 0x65: // ????
-		case 0x6D:
-		case 0x6F:
-		case 0x70:
 			{
 				r.push(JVS_REPORT_OK);
 				r.push(0);
 				r.push(0);
-				//short v = scaleAnalog(inputMgr.GetState(ANALOG_3), 1.0);
-				//r.push(HIBYTE(v));
-				//r.push(LOBYTE(v));
+				increment = 2;
+				break;
+			}
+		case 0x6F:
+			logmsg("CMD 0x6F - %x\n", __ARG__(1));
+			r.push(JVS_REPORT_OK);
+			increment = 2;
+			break;
+		case 0x6D:
+			//logmsg("CMD 0x6D - %x\n", __ARG__(1));
+			r.push(JVS_REPORT_OK);
+			increment = 2;
+			break;
+		case 0x6B:
+			//logmsg("CMD 0x6D - %x\n", __ARG__(1));
+			r.push(JVS_REPORT_OK);
+			increment = 2;
+			break;
+		case 0x6A:
+			//logmsg("CMD 0x6A - ");
+			//for (int i = 1; i <= 8; i++)
+			//	logmsg("%2X ", __ARG__(i));
+			//logmsg("\n");
+			r.push(JVS_REPORT_OK);
+			increment = 9;
+			break;
+		case 0x70:
+			{
+			//	logmsg("CMD 0x70 - %x\n", __ARG__(1));
+				r.push(JVS_REPORT_OK);
 				increment = 2;
 				break;
 			}

@@ -133,8 +133,6 @@ int TTX_InputManager::Poll()
 					break;
 				}
 
-
-
 			} else {
 				if (IS_JOY_AXIS(val)) {
 					stateTable[i] = 0;
@@ -272,6 +270,18 @@ int TTX_InputManager::Poll()
 				stateTable[i] = 0;
 		}
 	}
+
+	for (int i = 0; i < MAX_ANALOG; i++) {
+		const int id = ANALOG_1 + i;
+		DWORD val = bindTable[id];
+		if (IS_JOY_AXIS(val))
+			continue;
+		if (stateTable[id])
+			fakeAnalogs[i].down();
+		else
+			fakeAnalogs[i].up();
+	}
+
 	lastPoll = now;
 	//_Exit:
 	ReleaseMutex(hPollMutex);
@@ -497,6 +507,13 @@ int TTX_InputManager::Load()
 	RegCloseKey(hKey);
 #endif
 
+	for (int i = 0; i < MAX_ANALOG; i++) {
+		fakeAnalogs[i].reset();
+		fakeAnalogs[i].setDownAccel(50);
+		fakeAnalogs[i].setUpAccel(90);
+		fakeAnalogs[i].setRange(-MAX_AXIS_VAL, MAX_AXIS_VAL);
+	}
+
 	for (int i = P1_START; i < __INPUT_MAX__; i++) {
 		register DWORD val = bindTable[i];
 		logmsg("%08X  ", val);
@@ -585,6 +602,13 @@ LPDIRECTINPUTDEVICE8 TTX_InputManager::GetJoyDevice(int n) {
 
 
 int TTX_InputManager::GetState(TTX_InputsDef inp) {
+	if (isAnalogState(inp)) {
+		// somente se este não for um axis real
+		if (!IS_JOY_AXIS(bindTable[inp])) {
+			int curr = inp - ANALOG_1;
+			return fakeAnalogs[curr].read();
+		}
+	}
 	return stateTable[inp];
 }
 
@@ -719,5 +743,65 @@ void TTX_InputManager::Close()
 }
 
 
+AnalogFakeInput::AnalogFakeInput()
+{
+	currentValue = 0;
+	lastValue = 0;
+	downAccel = 0;
+	upAccel = 0;
+	minValue = 0;
+	maxValue = 0;
+}
 
+void AnalogFakeInput::setRange(int min, int max)
+{
+	minValue = -1000;
+	maxValue = 1000;
+}
 
+void AnalogFakeInput::setDownAccel(int x)
+{
+	downAccel = x;
+}
+
+void AnalogFakeInput::setUpAccel(int x)
+{
+	upAccel = x;
+}
+
+void AnalogFakeInput::down()
+{
+	lastValue = currentValue;
+	const int max = maxValue;
+
+	currentValue += downAccel;
+	
+	if (currentValue > max)
+		currentValue = max;
+}
+
+void AnalogFakeInput::up()
+{
+	lastValue = currentValue;
+	const int min = minValue;
+
+	currentValue -= upAccel;
+	
+	if (lastValue >= 0) {
+		if (currentValue < 0) {
+			currentValue = 0;
+		}
+	}
+	else if (currentValue < min)
+		currentValue = min;
+}
+
+int AnalogFakeInput::read()
+{
+	return currentValue;
+}
+
+void AnalogFakeInput::reset()
+{
+	currentValue = lastValue = 0;
+}

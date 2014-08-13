@@ -20,6 +20,8 @@
 #define DIRECTINPUT_VERSION 0x800
 #include <dinput.h>
 #include <d3d9.h>
+#include <dsound.h>
+#include <MMSystem.h>
 #include "ttx_monitor.h"
 
 #include "../Shared/DInput.h"
@@ -35,16 +37,34 @@ DWORD process_stream(UINT8 *stream, DWORD srcsize, BYTE *dst, DWORD dstsize);
 int is_addressed();
 void reset_addressed();
 
+static inline unsigned long mapRange(unsigned long x, unsigned long in_min, unsigned long in_max,
+					   unsigned long out_min, unsigned long out_max) { 
+      return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
 
 // Uma coisa muito importante que aprendi, aqui __stdcall é de extrema, mas de muita importância.
 // Senão o compilar vai atualizar a pilha manualmente e assim corrompe o stack, e ai ja era...
 //
 
-
 IDirect3D9* __stdcall Hook_Direct3DCreate9(UINT SDKVersion);
 typedef IDirect3D9* (__stdcall *LPDirect3DCreate9)(UINT SDKVersion);
 
 extern LPDirect3DCreate9 __Direct3DCreate9;
+
+typedef HMMIO (__stdcall *LPmmioOpenA)(LPCSTR pszFileName, LPMMIOINFO pmmioinfo, DWORD fdwOpen);
+HMMIO __stdcall Hook_mmioOpenA(LPCSTR pszFileName, LPMMIOINFO pmmioinfo, DWORD fdwOpen);
+
+HRESULT __stdcall Hook_DirectSoundCreate8(
+         LPCGUID lpcGuidDevice,
+         LPDIRECTSOUND8 * ppDS8,
+         LPUNKNOWN pUnkOuter);
+
+typedef HRESULT (__stdcall *LPDirectSoundCreate8)(
+         LPCGUID lpcGuidDevice,
+         LPDIRECTSOUND8 * ppDS8,
+         LPUNKNOWN pUnkOuter);
+extern LPDirectSoundCreate8 __DirectSoundCreate8;
 
 HRESULT __stdcall Hook_DirectInput8Create(
 	HINSTANCE hinst,

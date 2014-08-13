@@ -60,6 +60,8 @@ using namespace std;
 #define DEADZONE			(MAX_AXIS_VAL / DEADZONE_DIV)
 #define POLL_INTERVAL		30
 
+#define MAX_ANALOG		4
+
 extern BOOL bUniversalConfig;
 // ============================================================================
 //

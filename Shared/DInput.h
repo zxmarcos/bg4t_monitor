@@ -18,6 +18,25 @@ extern int DImagicCall;
 #endif
 
 
+class AnalogFakeInput
+{
+	int currentValue;
+	int lastValue;
+	int downAccel;
+	int upAccel;
+	int minValue;
+	int maxValue;
+public:
+	AnalogFakeInput();
+	void setRange(int min, int max);
+	void setDownAccel(int x);
+	void setUpAccel(int x);
+	void down();
+	void up();
+	int read();
+	void reset();
+};
+
 // ============================================================================
 //
 // ============================================================================
@@ -36,6 +55,7 @@ class TTX_InputManager
 	DWORD bindTable[__INPUT_MAX__];
 	int stateTable[__INPUT_MAX__];
 	DWORD lastPoll;
+
 
 	list<LPCDIDEVICEINSTANCE> devices;
 	list<LPDIRECTINPUTDEVICE8> lpJoysticks;
@@ -58,6 +78,7 @@ class TTX_InputManager
 	
 public:
 	char strBuf[128];
+	AnalogFakeInput fakeAnalogs[MAX_ANALOG];
 
 
 	TTX_InputManager();
